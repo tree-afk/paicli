@@ -41,6 +41,18 @@ def test_skill_registry_layers_and_state(tmp_path, monkeypatch):
     assert registry.load("web-access").description == "user desc"
 
 
+def test_builtin_defect_fix_skill_is_available(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    registry = SkillRegistry(tmp_path)
+
+    skill = registry.load("defect-fix")
+
+    assert skill is not None
+    assert skill.source == "builtin"
+    assert "failing test" in skill.content.lower()
+    assert "do not modify" in skill.content.lower()
+
+
 def test_skill_context_buffer_is_one_shot_and_capped():
     buffer = SkillContextBuffer(limit=3)
     buffer.push("a", "A")
