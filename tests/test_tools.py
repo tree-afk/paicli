@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from paicli.config import load_config
 from paicli.tools import ToolRegistry, get_builtin_tools
-from paicli.tools.base import ToolContext
+from paicli.tools.base import Tool, ToolContext, ToolResult, object_schema
 from paicli.tools.builtins import save_memory, search_memory
 
 
@@ -61,3 +63,39 @@ def test_memory_tools_save_metadata_and_recall_relevant_items(tmp_path, monkeypa
     assert not recalled.is_error
     assert "uv" in recalled.content
     assert "preference" in recalled.content
+
+
+def test_tool_validate_rejects_wrong_argument_type():
+    tool = _demo_tool({"path": {"type": "string"}}, ["path"])
+
+    with pytest.raises(ValueError, match="path"):
+        tool.validate({"path": 123})
+
+
+def test_tool_validate_rejects_value_outside_enum():
+    tool = _demo_tool({"kind": {"type": "string", "enum": ["a", "b"]}}, ["kind"])
+
+    with pytest.raises(ValueError, match="kind"):
+        tool.validate({"kind": "c"})
+
+
+def test_tool_validate_accepts_matching_payload():
+    tool = _demo_tool({"path": {"type": "string"}, "limit": {"type": "number"}}, ["path"])
+
+    assert tool.validate({"path": "README.md", "limit": 3}) == {
+        "path": "README.md",
+        "limit": 3,
+    }
+
+
+async def _noop(_payload, _context):
+    return ToolResult(content="ok")
+
+
+def _demo_tool(properties, required):
+    return Tool(
+        name="demo",
+        description="demo tool",
+        parameters=object_schema(properties, required),
+        handler=_noop,
+    )

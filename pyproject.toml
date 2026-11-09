@@ -9,6 +9,7 @@ authors = [{ name = "PaiCLI Contributors" }]
 keywords = ["agent", "ai", "cli", "llm", "mcp", "react", "terminal"]
 dependencies = [
   "httpx>=0.27.0",
+  "jsonschema>=4.18",
   "mcp>=1.27,<2",
   "pillow>=10.0",
   "prompt-toolkit>=3.0.43",
@@ -38,6 +39,7 @@ packages = ["src/paicli"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100

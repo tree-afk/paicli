@@ -173,3 +173,40 @@ def test_query_integrates_context_compression_and_detailed_usage(tmp_path, monke
     assert result.total_tokens == 128
     assert result.usage.cache_hit_tokens == 20
     assert result.usage.cache_miss_tokens == 100
+
+
+class EndlessToolClient:
+    model_name = "fake-model"
+    provider_name = "fake-provider"
+    max_context_window = 1000
+
+    async def chat(self, messages, tools, *, system_prompt):  # noqa: ARG002
+        yield {
+            "type": "tool_call_delta",
+            "tool_call": {
+                "index": 0,
+                "id": "call_1",
+                "function": {"name": "read_file", "arguments": '{"path":"note.txt"}'},
+            },
+        }
+        yield {"type": "message_end", "stop_reason": "tool_use"}
+
+
+def test_query_engine_honors_max_turns(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "note.txt").write_text("hello\n", encoding="utf-8")
+    config = load_config(project_root=tmp_path)
+    config.llm.api_key = "test"
+    registry = ToolRegistry()
+    registry.register_all(get_builtin_tools())
+    engine = QueryEngine(
+        llm_client=EndlessToolClient(),
+        tool_registry=registry,
+        config=config,
+        cwd=str(tmp_path),
+        max_turns=2,
+    )
+
+    result = asyncio.run(engine.ask_complete_async("loop"))
+
+    assert result.turns == 2

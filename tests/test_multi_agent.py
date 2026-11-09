@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import pytest
+
 from paicli.agent.orchestrator import (
     AgentMessage,
     AgentMessageType,
@@ -14,6 +16,21 @@ from paicli.agent.orchestrator import (
 )
 from paicli.config import load_config
 from paicli.tools import ToolRegistry, get_builtin_tools
+
+
+def test_orchestrator_rejects_cyclic_plan(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    orchestrator = _orchestrator(tmp_path, FakeTeamClient())
+
+    with pytest.raises(ValueError, match="cyclic"):
+        orchestrator.parse_plan(
+            """
+            {"steps": [
+              {"id": "a", "description": "A", "dependencies": ["b"]},
+              {"id": "b", "description": "B", "dependencies": ["a"]}
+            ]}
+            """
+        )
 
 
 def test_orchestrator_parses_steps_and_review_output(tmp_path, monkeypatch):

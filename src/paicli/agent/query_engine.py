@@ -21,12 +21,14 @@ class QueryEngine:
         config: PaiCliConfig,
         cwd: str,
         approval_callback=None,
+        max_turns: int = 20,
     ):
         self.llm_client = llm_client
         self.tool_registry = tool_registry
         self.config = config
         self.cwd = cwd
         self.approval_callback = approval_callback
+        self.max_turns = max_turns
         self.system_prompt = PromptAssembler(
             config=config,
             cwd=cwd,
@@ -43,6 +45,7 @@ class QueryEngine:
             cwd=self.cwd,
             config=self.config,
             approval_callback=self.approval_callback,
+            max_turns=self.max_turns,
         )
         agent.history = list(history or [])
         async for event in agent.run(message):

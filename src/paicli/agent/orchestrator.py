@@ -498,7 +498,31 @@ class AgentOrchestrator:
             steps[index - 1].dependencies = [
                 id_mapping.get(str(dep), str(dep)) for dep in raw_deps if str(dep)
             ]
+        self._validate_acyclic(steps)
         return steps
+
+    @staticmethod
+    def _validate_acyclic(steps: list[ExecutionStep]) -> None:
+        by_id = {step.id: step for step in steps}
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(step_id: str) -> bool:
+            if step_id in visiting:
+                return False
+            if step_id in visited:
+                return True
+            visiting.add(step_id)
+            for dependency in by_id[step_id].dependencies:
+                if dependency in by_id and not visit(dependency):
+                    return False
+            visiting.remove(step_id)
+            visited.add(step_id)
+            return True
+
+        for step in steps:
+            if step.id not in visited and not visit(step.id):
+                raise ValueError("plan contains a cyclic dependency")
 
     def get_executable_steps(self, steps: list[ExecutionStep]) -> list[ExecutionStep]:
         status = {step.id: step.status for step in steps}

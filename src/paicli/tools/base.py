@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any, Literal
+
+from jsonschema import Draft202012Validator
 
 from paicli.config import PaiCliConfig
 
@@ -58,6 +62,18 @@ class Tool:
         for key in self.required_keys:
             if key not in payload:
                 raise ValueError(f'tool "{self.name}" missing required input: {key}')
+        if isinstance(self.parameters, dict) and self.parameters.get("type"):
+            validator = _schema_validator(
+                json.dumps(self.parameters, sort_keys=True, ensure_ascii=False)
+            )
+            errors = sorted(
+                validator.iter_errors(payload),
+                key=lambda error: tuple(str(part) for part in error.path),
+            )
+            if errors:
+                error = errors[0]
+                path = ".".join(str(part) for part in error.path) or "<root>"
+                raise ValueError(f'tool "{self.name}" invalid input at {path}: {error.message}')
         return payload
 
     async def execute(self, payload: dict[str, Any], context: ToolContext) -> ToolResult:
@@ -74,3 +90,8 @@ def object_schema(
         "properties": properties,
         "required": required or [],
     }
+
+
+@lru_cache(maxsize=256)
+def _schema_validator(schema_json: str) -> Draft202012Validator:
+    return Draft202012Validator(json.loads(schema_json))
